@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dashboard | Marzban Eye — Final</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>window.tailwind={theme:{extend:{fontFamily:{sans:['Inter','ui-sans-serif','system-ui']},container:{center:true,padding:'1rem'}}}}</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    :root{ --app-header-h:68px; }
+    [x-cloak]{display:none!important}
+    *{scrollbar-width:thin;scrollbar-color:#52525b transparent}
+    *::-webkit-scrollbar{height:10px;width:10px}
+    *::-webkit-scrollbar-thumb{background:#3f3f46;border-radius:8px}
+    *::-webkit-scrollbar-track{background:transparent}
+    /* status badge */
+    .status-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;line-height:1;font-weight:600;font-size:.75rem;padding:.35rem .6rem;min-width:88px;text-align:center;backdrop-filter:saturate(140%) blur(2px)}
+    /* row height */
+    .row-md{height:58px}
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-gray-900 via-gray-900 to-black text-white font-sans" x-data="app()" x-init="init()">
+
+  <!-- Header -->
+  <header class="fixed top-0 inset-x-0 z-40 bg-gray-900/95 backdrop-blur border-b border-white/10 shadow-lg" style="height:var(--app-header-h);">
+    <div class="max-w-7xl mx-auto px-4 h-full flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-9 h-9 rounded-2xl bg-indigo-600/20 grid place-items-center ring-1 ring-indigo-500/30"><span class="text-xl">📊</span></div>
+        <h1 class="text-xl md:text-2xl font-bold tracking-tight truncate" x-text="lang==='en' ? 'Users Dashboard' : 'داشبورد کاربران'"></h1>
+      </div>
+      <div class="flex items-center gap-2 text-xs">
+        <span x-show="loading" class="px-2 py-1 rounded-full bg-yellow-500/15 text-yellow-300 ring-1 ring-yellow-500/30" x-text="lang==='en' ? 'Updating…' : 'در حال بروزرسانی…'"></span>
+        <span x-show="!loading && lastUpdated" class="px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30">
+          <span x-text="lang==='en' ? 'Updated:' : 'آپدیت:'"></span>
+          <span x-text="lastUpdated"></span>
+        </span>
+        <button @click="toggleLang" class="ms-2 px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-[11px] ring-1 ring-white/10">
+          <span x-text="lang==='en' ? 'EN' : 'FA'"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 space-y-5" style="padding-top:calc(var(--app-header-h) + 16px);">
+
+    <!-- Toolbar -->
+    <section class="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- search -->
+        <div class="relative flex-1 min-w-[220px] md:min-w-[18rem]">
+          <input x-model.debounce.300ms="search" type="text" :placeholder="lang==='en' ? 'Search username…' : 'جستجؤ نام کاربری…'"
+                 class="peer w-full rounded-xl bg-white/5 border border-white/10 focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500/20 outline-none ps-10 pe-3 py-2 placeholder:text-gray-400 transition" />
+          <svg class="absolute right-3 top-2.5 w-5 h-5 text-gray-400 peer-focus:text-indigo-300 transition ltr:right-3 rtl:left-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.3-4.3M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg>
+        </div>
+
+        <!-- status filter pills -->
+        <div class="flex items-center gap-1 bg-white/5 rounded-xl p-1 ring-1 ring-white/10">
+          <button @click="statusFilter='all'" :class="pill(statusFilter==='all')" class="px-3 py-1.5 rounded-lg text-sm" x-text="lang==='en' ? 'All' : 'همه'"></button>
+          <button @click="statusFilter='active'" :class="pill(statusFilter==='active')" class="px-3 py-1.5 rounded-lg text-sm" x-text="lang==='en' ? 'Active now' : 'اکنون فعال'"></button>
+          <button @click="statusFilter='offline'" :class="pill(statusFilter==='offline')" class="px-3 py-1.5 rounded-lg text-sm" x-text="lang==='en' ? 'Offline' : 'آفلاین'"></button>
+          <button @click="statusFilter='limited'" :class="pill(statusFilter==='limited')" class="px-3 py-1.5 rounded-lg text-sm" x-text="lang==='en' ? 'Limited' : 'محدود'"></button>
+        </div>
+
+        <!-- sort + dir -->
+        <div class="flex items-center gap-2 bg-white/5 rounded-xl p-1 ring-1 ring-white/10">
+          <select x-model="sortKey" class="bg-transparent px-2 py-1.5 rounded-lg outline-none">
+            <option value="username" x-text="lang==='en' ? 'Username' : 'نام کاربری'"></option>
+            <option value="percent_used" x-text="lang==='en' ? '% Used' : '٪ مصرف'"></option>
+            <option value="expire_in" x-text="lang==='en' ? 'Time left' : 'زمان باقی'"></option>
+            <option value="last_online" x-text="lang==='en' ? 'Last online' : 'آخرین اتصال'"></option>
+          </select>
+          <button @click="toggleSortDir" class="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5">
+            <span x-text="sortDir==='asc' ? (lang==='en' ? '↗︎ Asc' : '↗︎ صعودی') : (lang==='en' ? '↘︎ Desc' : '↘︎ نزولی')"></span>
+          </button>
+        </div>
+
+        <!-- %min + expSoon -->
+        <div class="flex items-center gap-2 bg-white/5 rounded-xl p-2 ring-1 ring-white/10">
+          <label class="text-xs text-gray-400" x-text="lang==='en' ? 'Min % Used' : 'حداقل ٪ مصرف'"></label>
+          <input type="range" min="0" max="100" step="5" x-model.number="percentMin" class="w-28 sm:w-32">
+          <span class="text-sm" x-text="percentMin + '%' "></span>
+          <div class="w-px h-6 bg-white/10 mx-1"></div>
+          <label class="text-xs text-gray-400" x-text="lang==='en' ? 'Expire ≤ 3d' : 'انقضای ≤۳روز'"></label>
+          <button @click="expSoon=!expSoon" :class="expSoon?'bg-orange-500/20 ring-orange-500/30':'bg-white/10 ring-white/10'" class="px-3 py-1.5 rounded-lg ring-1 text-sm">
+            <span x-text="expSoon ? (lang==='en' ? 'On' : 'فعال') : (lang==='en' ? 'Off' : 'غیرفعال')"></span>
+          </button>
+        </div>
+
+        <!-- online threshold + auto refresh -->
+        <div class="flex items-center gap-2 bg-white/5 rounded-xl p-2 ring-1 ring-white/10">
+          <label class="text-xs text-gray-400" x-text="lang==='en' ? 'Online threshold' : 'آستانه آنلاین'"></label>
+          <select x-model.number="onlineThresholdMin" class="bg-transparent px-2 py-1.5 rounded-lg outline-none">
+            <option :value="3" x-text="lang==='en' ? '3 min' : '۳ دقیقه'"></option>
+            <option :value="5" x-text="lang==='en' ? '5 min' : '۵ دقیقه'"></option>
+            <option :value="10" x-text="lang==='en' ? '10 min' : '۱۰ دقیقه'"></option>
+            <option :value="15" x-text="lang==='en' ? '15 min' : '۱۵ دقیقه'"></option>
+          </select>
+          <div class="w-px h-6 bg-white/10 mx-1"></div>
+          <label class="text-xs text-gray-400" x-text="lang==='en' ? 'Auto refresh' : 'رفرش خودکار'"></label>
+          <select x-model.number="autoRefreshSec" class="bg-transparent px-2 py-1.5 rounded-lg outline-none">
+            <template x-for="s in [15,30,45,60,120]" :key="s">
+              <option :value="s" x-text="s"></option>
+            </template>
+          </select>
+          <span class="text-xs text-gray-400">/ <span class="text-white" x-text="countdown"></span>s</span>
+          <button @click="manualRefresh" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 ring-1 ring-indigo-500/40 text-sm" x-text="lang==='en' ? 'Refresh' : 'رفرش'"></button>
+          <button @click="logout" class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 ring-1 ring-red-500/40 text-sm" x-text="lang==='en' ? 'Logout' : 'خروج'"></button>
+        </div>
+
+        <button @click="exportCSV(sorted())" class="ms-auto px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500" x-text="lang==='en' ? 'Export CSV' : 'خروجی CSV'"></button>
+      </div>
+
+      <!-- quick stats row -->
+      <div class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+        <div class="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+          <div class="text-gray-400" x-text="lang==='en' ? 'Showing' : 'نمایش'"></div>
+          <div class="text-lg font-semibold" x-text="num(sorted().length)"></div>
+        </div>
+        <div class="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+          <div class="text-gray-400" x-text="lang==='en' ? 'Active now' : 'اکنون فعال'"></div>
+          <div class="text-lg font-semibold flex items-center gap-2">
+            <span x-text="num(filtered().filter(isActiveNow).length)"></span>
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" x-show="filtered().filter(isActiveNow).length>0"></span>
+          </div>
+        </div>
+        <div class="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+          <div class="text-gray-400" x-text="lang==='en' ? 'Offline' : 'آفلاین'"></div>
+          <div class="text-lg font-semibold" x-text="num(filtered().filter(u=>!isActiveNow(u)).length)"></div>
+        </div>
+        <div class="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+          <div class="text-gray-400" x-text="lang==='en' ? 'Avg. % used' : 'میانگین مصرف'"></div>
+          <div class="text-lg font-semibold" x-text="avgPercent(filtered()) + '%' "></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Active chips -->
+    <section class="rounded-2xl bg-white/5 ring-1 ring-white/10">
+      <div class="px-4 py-3 border-b border-white/10 text-sm text-gray-300" x-text="lang==='en' ? 'Active users now' : 'اکنون فعال‌ها'"></div>
+      <div class="p-4">
+        <template x-if="filtered().filter(isActiveNow).length === 0">
+          <div class="text-sm text-gray-400" x-text="lang==='en' ? 'No active users at the moment.' : 'کاربر فعالی در حال حاضر نیست.'"></div>
+        </template>
+        <div class="flex flex-wrap gap-3" x-show="filtered().filter(isActiveNow).length > 0">
+          <template x-for="u in filtered().filter(isActiveNow).slice(0,30)" :key="u.username">
+            <div class="relative flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-500/30">
+              <span class="relative w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse ring-2 ring-emerald-700/40"></span>
+              <span class="text-sm font-medium" x-text="u.username"></span>
+              <span class="text-[11px] text-gray-400" x-text="fmt(u.last_online ?? '')"></span>
+            </div>
+          </template>
+          <div class="text-xs text-gray-400 self-center" x-show="filtered().filter(isActiveNow).length > 30" x-text="'+' + num(filtered().filter(isActiveNow).length - 30) + (lang==='en' ? ' more' : ' بیشتر')"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Table Card -->
+    <section class="rounded-2xl bg-white/5 ring-1 ring-white/10 overflow-hidden">
+      <div class="overflow-auto" x-ref="scroller">
+        <table class="min-w-full text-sm">
+          <!-- Sticky header fixed: inside scroller, solid bg -->
+          <thead class="sticky top-0 z-50">
+            <tr class="bg-gray-900/90 backdrop-blur supports-[backdrop-filter]:bg-gray-900/80 text-gray-200 shadow-sm">
+              <th class="px-3 py-3 text-right font-medium" x-text="lang==='en' ? 'User' : 'کاربر'"></th>
+              <th class="px-3 py-3 text-right font-medium" x-text="lang==='en' ? 'Status' : 'وضعیت'"></th>
+              <th class="px-3 py-3 text-right font-medium" x-text="lang==='en' ? 'Used' : 'مصرف'"></th>
+              <th class="px-3 py-3 text-right font-medium" x-text="lang==='en' ? 'Total' : 'کل'"></th>
+              <th class="px-3 py-3 text-right font-medium" x-text="lang==='en' ? '% Used' : '٪ مصرف'"></th>
+              <th class="px-3 py-3 text-right font-medium" x-text="lang==='en' ? 'Expire date' : 'انقضا'"></th>
+              <th class="px-3 py-3 text-right font-medium" x-text="lang==='en' ? 'Time left' : 'زمان باقی'"></th>
+              <th class="px-3 py-3 text-right font-medium" x-text="lang==='en' ? 'Last online' : 'آخرین اتصال'"></th>
+              <th class="px-3 py-3 text-right font-medium" x-text="lang==='en' ? 'Sub update' : 'آپدیت ساب'"></th>
+              <th class="px-3 py-3 text-right font-medium" x-text="lang==='en' ? 'Agent' : 'برنامه'"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-if="loading">
+              <template x-for="i in 8" :key="'sk'+i">
+                <tr class="border-b border-white/5 row-md"><td class="px-3 py-3" colspan="10"><div class="h-3 w-full bg-white/5 rounded animate-pulse"></div></td></tr>
+              </template>
+            </template>
+
+            <template x-for="u in pageRows()" :key="u.username">
+              <tr class="border-b border-white/5 hover:bg-white/5 transition row-md">
+                <td class="px-3 py-3 font-medium flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full" :class="isActiveNow(u)?'bg-emerald-400':'bg-gray-500'" :title="u.last_online_iso || '-' "></span>
+                  <span x-text="u.username"></span>
+                </td>
+                <td class="px-3 py-3">
+                  <span class="status-pill border" :class="statusBadge(u)" :title="u.last_online_iso || '-'" x-text="statusText(u)"></span>
+                </td>
+                <td class="px-3 py-3" x-text="u.used"></td>
+                <td class="px-3 py-3" x-text="u.limit ?? '∞'"></td>
+                <td class="px-3 py-3">
+                  <div class="flex items-center gap-2">
+                    <div class="relative w-28 h-2 rounded-full bg-white/10 overflow-hidden">
+                      <div class="absolute inset-y-0 right-0 rounded-full" :class="progressClass(percentNum(u.percent_used))" :style="{ width: (percentNum(u.percent_used)) + '%' }"></div>
+                    </div>
+                    <span :class="percentTextClass(percentNum(u.percent_used))" x-text="u.percent_used ?? '-' "></span>
+                  </div>
+                </td>
+                <td class="px-3 py-3" x-text="fmt(u.expire_date)"></td>
+                <td class="px-3 py-3"><span :class="expireClass(u.expire_in)" x-text="fmt(u.expire_in ?? '-')"></span></td>
+                <td class="px-3 py-3" x-text="fmt(u.last_online ?? '-')"></td>
+                <td class="px-3 py-3"><span :title="u.last_sub_update_iso || '-'" x-text="fmt(u.last_sub_update ?? '-')"></span></td>
+                <td class="px-3 py-3 truncate max-w-[12rem]" :title="u.last_user_agent || '-'" x-text="u.last_user_agent ?? '-' "></td>
+              </tr>
+            </template>
+
+            <tr x-show="!loading && pageRows().length === 0"><td colspan="10" class="px-3 py-10 text-center text-gray-400" x-text="lang==='en' ? 'No users matched your filters.' : 'هیچ کاربری مطابق فیلترها پیدا نشد.'"></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile cards -->
+      <div class="md:hidden divide-y divide-white/10">
+        <template x-if="loading">
+          <template x-for="i in 5" :key="'skm'+i">
+            <div class="p-4"><div class="h-3 w-full bg-white/5 rounded animate-pulse"></div></div>
+          </template>
+        </template>
+        <template x-for="u in pageRows()" :key="'m'+u.username">
+          <div class="p-4 bg-white/5">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full" :class="isActiveNow(u)?'bg-emerald-400':'bg-gray-500'"></span>
+                <div class="font-semibold" x-text="u.username"></div>
+              </div>
+              <span class="status-pill border" :class="statusBadge(u)" x-text="statusText(u)"></span>
+            </div>
+            <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-300">
+              <div><span class="text-gray-400" x-text="lang==='en' ? 'Used:' : 'مصرف:'"></span> <span x-text="u.used"></span></div>
+              <div><span class="text-gray-400" x-text="lang==='en' ? 'Total:' : 'کل:'"></span> <span x-text="u.limit ?? '∞'"></span></div>
+              <div class="col-span-2 flex items-center gap-2">
+                <div class="text-gray-400" x-text="lang==='en' ? '% Used:' : '٪ مصرف:'"></div>
+                <div class="relative flex-1 h-2 rounded-full bg-white/10 overflow-hidden">
+                  <div class="absolute inset-y-0 right-0 rounded-full" :class="progressClass(percentNum(u.percent_used))" :style="{ width: (percentNum(u.percent_used)) + '%' }"></div>
+                </div>
+                <div class="text-xs" :class="percentTextClass(percentNum(u.percent_used))" x-text="u.percent_used ?? '-' "></div>
+              </div>
+              <div><span class="text-gray-400" x-text="lang==='en' ? 'Expire:' : 'انقضا:'"></span> <span x-text="fmt(u.expire_date)"></span></div>
+              <div><span class="text-gray-400" x-text="lang==='en' ? 'Left:' : 'باقی:'"></span> <span :class="expireClass(u.expire_in)" x-text="fmt(u.expire_in ?? '-')"></span></div>
+              <div><span class="text-gray-400" x-text="lang==='en' ? 'Last online:' : 'آخرین اتصال:'"></span> <span x-text="fmt(u.last_online ?? '-')"></span></div>
+              <div class="truncate"><span class="text-gray-400" x-text="lang==='en' ? 'Agent:' : 'برنامه:'"></span> <span x-text="u.last_user_agent ?? '-' "></span></div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 border-t border-white/10 bg-white/5">
+        <div class="text-sm text-gray-400">
+          <span x-text="lang==='en' ? 'Page' : 'صفحه'"></span>
+          <span class="text-white" x-text="num(currentPage())"></span>
+          <span x-text="lang==='en' ? 'of' : 'از'"></span>
+          <span class="text-white" x-text="num(totalPages())"></span>
+        </div>
+        <div class="flex items-center gap-2">
+          <select x-model.number="pageSize" @change="goPage(1)" class="bg-black/20 border border-white/10 rounded-lg px-2 py-2">
+            <template x-for="s in [10,25,50,100]" :key="s"><option :value="s" x-text="s + (lang==='en' ? ' / page' : ' / صفحه')"></option></template>
+          </select>
+          <div class="flex items-center gap-2">
+            <button class="px-3 py-2 rounded-lg border border-white/10 bg-white/5" @click="prevPage()" x-text="lang==='en' ? 'Prev' : 'قبلی'"></button>
+            <button class="px-3 py-2 rounded-lg border border-white/10 bg-white/5" @click="nextPage()" x-text="lang==='en' ? 'Next' : 'بعدی'"></button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function app(){
+      return {
+        users: [], loading: false, lastUpdated: '',
+        serverNowIso: null, serverThresholdSec: null,
+
+        search: '', sortKey: 'username', sortDir: 'asc',
+        page: 1, pageSize: 25, autoRefreshSec: 30, countdown: 30,
+        statusFilter: 'all', percentMin: 0, expSoon: false, onlineThresholdMin: 10,
+        _refreshT: null, _tickT: null,
+
+        // default English UI
+        lang: 'en',
+
+        init(){
+          const token = localStorage.getItem('token');
+          if (!token){ window.location.href='/login'; return; }
+          this.applyDir();
+          this.fetchData();
+          this._refreshT = setInterval(()=> this.fetchData(), this.autoRefreshSec*1000);
+          this._tickT = setInterval(()=> this.countdown = this.countdown>0 ? this.countdown-1 : this.autoRefreshSec, 1000);
+          this.$watch('autoRefreshSec', (v)=>{ clearInterval(this._refreshT); clearInterval(this._tickT); this.countdown=v; this._refreshT=setInterval(()=>this.fetchData(), v*1000); this._tickT=setInterval(()=> this.countdown=this.countdown>0?this.countdown-1:v, 1000); });
+        },
+        applyDir(){ if (this.lang==='en'){ document.documentElement.dir='ltr'; document.documentElement.lang='en'; } else { document.documentElement.dir='rtl'; document.documentElement.lang='fa'; } },
+        toggleLang(){ this.lang = this.lang==='en' ? 'fa' : 'en'; this.applyDir(); this.lastUpdated = new Date().toLocaleString(this.lang==='en' ? 'en-US' : 'fa-IR'); },
+        logout(){ localStorage.removeItem('token'); window.location.href='/login'; },
+        manualRefresh(){ this.countdown = this.autoRefreshSec; this.fetchData(true); },
+
+        fetchData(manual=false){
+          this.loading = true;
+          fetch('/stats/users/details', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }})
+          .then(res => { if (res.status===401){ this.logout(); return {}; } return res.json(); })
+          .then(data => {
+            const arr = Array.isArray(data) ? data : (Array.isArray(data.users) ? data.users : []);
+            this.users = arr;
+            this.serverNowIso = data.server_now_iso || null;
+            this.serverThresholdSec = data.online_threshold_sec || null;
+            this.lastUpdated = new Date().toLocaleString(this.lang==='en' ? 'en-US' : 'fa-IR');
+            if (manual) this.countdown=this.autoRefreshSec;
+            const tp=this.totalPages(); if (this.page>tp) this.page=tp||1;
+          })
+          .catch(()=>{})
+          .finally(()=> this.loading=false);
+        },
+
+        // ===== EN formatting helpers (kill RTL marks and FA digits) =====
+        toEnDigits(str){
+          const map = {'۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'};
+          return String(str).replace(/[۰-۹]/g, d=>map[d]).replace(/[\u200e\u200f\u061C]/g,'');
+        },
+        stripPersianLetters(str){ return String(str).replace(/[\u0600-\u06FF]/g,''); },
+        faTimeToEn(str){
+          let s = this.toEnDigits(String(str));
+          s = s.replace(/\s*و\s*/g,' ') // drop the Persian "and"
+               .replace(/روز/g,'days')
+               .replace(/ساعت/g,'hours')
+               .replace(/دقیقه/g,'minutes')
+               .replace(/ثانیه/g,'seconds')
+               .replace(/پیش/g,'ago')
+               .replace(/منقضی(?:\s*شده)?/g,'Expired')
+               .replace(/غیرفعال/g,'Disabled')
+               .replace(/محدود/g,'Limited')
+               .replace(/اکنون فعال/g,'Active now');
+          return this.stripPersianLetters(s).replace(/\s{2,}/g,' ').trim();
+        },
+        // smart formatter: if "2025-08-11 21:52:25 UTC" → keep; if relative FA text → translate
+        fmt(v){
+          if (this.lang!=='en') return v;
+          if (!v) return '-';
+          const s = String(v);
+          // ISO/UTC dates: leave untouched
+          if (/\d{4}-\d{2}-\d{2}/.test(s)) return s;
+          // If server already gave English text, just normalize spacing
+          if (/[A-Za-z]/.test(s) && !/[\u0600-\u06FF]/.test(s)) return s.replace(/\s{2,}/g,' ').trim();
+          return this.faTimeToEn(s);
+        },
+
+        filtered(){
+          const q = (this.search||'').trim().toLowerCase();
+          return this.users.filter(u=>{
+            const matches = (u.username||'').toLowerCase().includes(q);
+            const pctOK = this.percentNum(u.percent_used) >= this.percentMin;
+            const expOK = !this.expSoon || this.daysLeft(u.expire_in) <= 3 || this.daysLeft(u.expire_in) === -1;
+            let statusOK = true;
+            if (this.statusFilter==='active') statusOK = this.isActiveNow(u);
+            if (this.statusFilter==='offline') statusOK = !this.isActiveNow(u);
+            if (this.statusFilter==='limited') statusOK = (u.status||'').toLowerCase().includes('limited') || (u.status||'').includes('محدود');
+            return matches && pctOK && expOK && statusOK;
+          });
+        },
+        sorted(){
+          const dir = this.sortDir==='asc'?1:-1;
+          const val=(row,key)=>{
+            switch(key){
+              case 'percent_used': return this.percentNum(row.percent_used);
+              case 'expire_in': return this.daysLeft(row.expire_in);
+              case 'last_online': {
+                if (typeof row.last_online_seconds_ago === 'number') return -row.last_online_seconds_ago;
+                const iso=row.last_online_iso||''; const t=Date.parse(iso.replace('Z','+00:00')); return isNaN(t)?0:t;
+              }
+              default: return (row[key]||'').toString().toLowerCase();
+            }
+          };
+          return [...this.filtered()].sort((a,b)=>{ const av=val(a,this.sortKey), bv=val(b,this.sortKey); if(av<bv) return -1*dir; if(av>bv) return 1*dir; return 0;});
+        },
+        totalPages(){ return Math.max(1, Math.ceil(this.sorted().length / this.pageSize)); },
+        currentPage(){ return Math.min(this.page, this.totalPages()); },
+        pageRows(){ const s=(this.currentPage()-1)*this.pageSize; return this.sorted().slice(s, s+this.pageSize); },
+        prevPage(){ this.page=Math.max(1,this.page-1); }, nextPage(){ this.page=Math.min(this.totalPages(),this.page+1); }, goPage(n){ this.page=Math.max(1,Math.min(this.totalPages(),n)); },
+        toggleSortDir(){ this.sortDir = this.sortDir==='asc' ? 'desc' : 'asc'; },
+
+        pill(active){ return (active? 'bg-indigo-600/30 ring-1 ring-indigo-500/40 text-white' : 'text-gray-300 hover:text-white') },
+        num(n){ return new Intl.NumberFormat(this.lang==='en' ? 'en-US' : 'fa-IR').format(n); },
+        percentNum(p){ if(!p) return 0; const v=parseFloat(String(p).replace('%','').replace(',','.')); return isNaN(v)?0:Math.max(0,Math.min(100,v)); },
+        avgPercent(rows){ const arr=rows.map(r=>this.percentNum(r.percent_used)); if(arr.length===0) return 0; const s=arr.reduce((a,b)=>a+b,0); return Math.round((s/arr.length)*10)/10; },
+        daysLeft(text){
+          if(!text) return 9999;
+          const st=String(text);
+          if(st.includes('منقضی') || /expired/i.test(st)) return -1;
+          const fa = st.match(/([۰-۹\d]+)\s*روز/); const en = st.match(/(\d+)\s*day/);
+          const raw = (fa?this.toEnDigits(fa[1]):(en?en[1]:null));
+          return raw?parseInt(raw):9999;
+        },
+
+        isActiveNow(u){
+          if (typeof u.online_now === 'boolean') return u.online_now;
+          const iso=u?.last_online_iso; if(!iso) return false;
+          const d=new Date(iso.replace('Z','+00:00')); if(isNaN(d.getTime())) return false;
+          const diffMs=Date.now()-d.getTime();
+          return diffMs <= this.onlineThresholdMin*60*1000;
+        },
+
+        progressClass(v){ if(v>=90) return 'bg-red-500'; if(v>=75) return 'bg-orange-400'; return 'bg-emerald-500'; },
+        percentTextClass(v){ if(v>=90) return 'text-red-400 font-semibold'; if(v>=75) return 'text-orange-300'; return 'text-emerald-300'; },
+        statusText(u){
+          if(this.isActiveNow(u)) return this.lang==='en' ? 'Active now' : 'اکنون فعال';
+          const s=(u.status||'').toLowerCase();
+          if(s.includes('expired') || (u.status||'').includes('منقضی')) return this.lang==='en' ? 'Expired' : 'منقضی';
+          if(s.includes('disabled') || (u.status||'').includes('غیرفعال')) return this.lang==='en' ? 'Disabled' : 'غیرفعال';
+          if(s.includes('limited') || (u.status||'').includes('محدود')) return this.lang==='en' ? 'Limited' : 'محدود';
+          return this.lang==='en' ? 'Offline' : 'آفلاین';
+        },
+        statusBadge(u){
+          if(this.isActiveNow(u)) return 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+          const s=(u.status||'').toLowerCase();
+          if(s.includes('limited')||(u.status||'').includes('محدود')) return 'bg-orange-500/15 text-orange-300 border border-orange-500/30';
+          if(s.includes('expired')||(u.status||'').includes('منقضی')) return 'bg-red-500/15 text-red-300 border border-red-500/30';
+          if(s.includes('disabled')||(u.status||'').includes('غیرفعال')) return 'bg-red-500/15 text-red-300 border border-red-500/30';
+          return 'bg-gray-500/15 text-gray-300 border border-gray-500/30';
+        },
+
+        exportCSV(rows){
+          const headers=["username","status","used","limit","percent_used","expire_date","expire_in","last_online","last_sub_update","last_user_agent"];
+          const csv=[headers.join(",")].concat(rows.map(u=>headers.map(h=>`"${String(u[h]??"-").replaceAll('"','\\"')}"`).join(","))).join("\n");
+          const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
+          const url=URL.createObjectURL(blob);
+          const a=document.createElement("a"); a.href=url; a.download=`marzban-users-${Date.now()}.csv`; a.click();
+          URL.revokeObjectURL(url);
+        }
+      }
+    }
+  </script>
+</body>
+</html>

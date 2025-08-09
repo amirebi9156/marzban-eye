@@ -1,0 +1,55 @@
+from fastapi import APIRouter, Depends, Query
+from app.core.auth import get_current_user
+from app.services.marzban_client import marzban
+
+router = APIRouter(prefix="/stats", tags=["stats"])
+
+@router.get("/users", dependencies=[Depends(get_current_user)])
+def user_stats(limit: int = Query(10, ge=1, le=100)):
+    """برگرداندن بیشترین مصرف‌کننده‌ها"""
+    users = marzban.list_users()["users"]
+    # هر کاربر شامل مقادیر 'used_traffic' هست
+    sorted_users = sorted(users, key=lambda u: u.get("used_traffic", 0), reverse=True)
+    return sorted_users[:limit]
+
+    @router.get("/inbounds", dependencies=[Depends(get_current_user)])
+def inbound_stats():
+    """محاسبه و مرتب‌سازی مصرف کل هر اینباند با استفاده از لیست کاربران و تگ‌ها"""
+    inbound_usage = {}
+
+    # گرفتن لیست تگ‌های اینباند از مرزبان
+    raw_inbounds = marzban.list_inbounds()
+    all_tags = []
+    for proto, inb_list in raw_inbounds.items():
+        for inb in inb_list:
+            all_tags.append(inb.get("tag"))
+
+    # گرفتن لیست کاربران
+    users = marzban.list_users().get("users", [])
+
+    # جمع زدن مصرف بر اساس تطابق تگ با inbounds کاربر
+    for tag in all_tags:
+        total_usage = 0
+        for user in users:
+            # اگر فیلد inbounds کاربر وجود دارد و شامل این تگ است
+            if tag in (user.get("inbounds") or []):
+                total_usage += user.get("used_traffic", 0)
+        inbound_usage[tag] = total_usage
+
+    # تابع تبدیل بایت به واحد خوانا
+    def format_bytes(size):
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+            if size < 1024:
+                return f"{size:.2f} {unit}"
+            size /= 1024
+        return f"{size:.2f} PB"
+
+    # مرتب‌سازی و ساخت خروجی نهایی
+    sorted_usage = sorted(inbound_usage.items(), key=lambda x: x[1], reverse=True)
+    result = [
+        {"inbound_tag": tag, "total_usage_bytes": usage, "total_usage_human": format_bytes(usage)}
+        for tag, usage in sorted_usage
+    ]
+
+    return result
+

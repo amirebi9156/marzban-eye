@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends
-from app.core.security import require_panel_api_key
 from app.services.marzban_client import marzban
+from app.core.auth import get_current_user
 
 router = APIRouter(prefix="/inbounds", tags=["inbounds"])
 
-@router.get("", dependencies=[Depends(require_panel_api_key)])
+@router.get("", dependencies=[Depends(get_current_user)])
 def list_inbounds():
     return marzban.list_inbounds()
