@@ -1,6 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+REPO_URL="https://github.com/marzban-eye/marzban-eye.git"
+INSTALL_DIR="/opt/marzban-eye"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+
+if [ -f "$SCRIPT_DIR/../requirements.txt" ]; then
+  cd "$SCRIPT_DIR/.."
+else
+  if [ ! -d "$INSTALL_DIR/.git" ]; then
+    echo "==> Cloning Marzban-Eye to ${INSTALL_DIR}..."
+    sudo git clone "$REPO_URL" "$INSTALL_DIR"
+  fi
+  cd "$INSTALL_DIR"
+fi
+
 echo "==> Checking Python & venv..."
 if ! command -v python3 >/dev/null 2>&1; then
   echo "python3 not found. Install Python 3.10+ and retry."; exit 1

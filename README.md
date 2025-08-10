@@ -47,8 +47,10 @@ Configuration is stored in `/opt/marzban-eye/.env`.
 
 ### Easy Install
 
+Run as root or with sudo:
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/marzban-eye/marzban-eye/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/marzban-eye/marzban-eye/main/scripts/install.sh | sudo bash
 ```
 
 ## Health Check
