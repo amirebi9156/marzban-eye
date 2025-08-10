@@ -50,7 +50,7 @@ Configuration is stored in `/opt/marzban-eye/.env`.
 Run as root or with sudo:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/marzban-eye/marzban-eye/main/scripts/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/marzban-eye/marzban-eye/master/scripts/install.sh | sudo bash
 ```
 
 ## Health Check
